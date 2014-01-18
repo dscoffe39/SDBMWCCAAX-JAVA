@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">SDBMWCCAAX</string>
+    <string name="action_settings">Settings</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="logoff">LOGOUT</string>
+    <string name="login">LOGIN</string>
+    <string name="newmember">Add a new AX member</string>
+    <string name="viewstaff">View AX Staff</string>
+    <string name="viewinst">View AX Instructors</string>
+
+</resources>
