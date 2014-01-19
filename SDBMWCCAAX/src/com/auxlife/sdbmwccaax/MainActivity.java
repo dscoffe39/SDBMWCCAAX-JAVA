@@ -33,6 +33,7 @@ public class MainActivity extends Activity {
 	private final static String URL_LOGOUT = "http://sdbmwcca.com/ANDroid.endpOInt/logout.actIOn";
 	private final static String URL_GET_MEMB = "http://sdbmwcca.com/ANDroid.endpOInt/login.actIOn";
 	private final static String URL_PUT_MEMB = "http://sdbmwcca.com/ANDroid.endpOInt/login.actIOn";
+	private View MainView;
 	private TextView title;
 	private TextView logoff;
 	private TextView login;
@@ -45,14 +46,16 @@ public class MainActivity extends Activity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_main);
+		MainView = (View) findViewById(R.id.RelativeLayout);
 		title = (TextView) findViewById(R.id.TVtitle);
 		logoff = (TextView) findViewById(R.id.TVlogoff);
 		login = (TextView) findViewById(R.id.TVlogin);
 		newmember = (Button) findViewById(R.id.Bmember);
 		viewstaff = (Button) findViewById(R.id.Bviewstaff);
 		viewinst = (Button) findViewById(R.id.Bviewinst);
-		blankview = (ImageView) findViewById(R.id.blankView);
-		title.setText("Hello!");
+
+		MainView.setVisibility(View.INVISIBLE);
 		CheckNetworkState(this);
 	}
 	
@@ -68,14 +71,16 @@ public class MainActivity extends Activity {
 		startActivity(login);
 	}
 
+	/** must check if we have a valid network 
+	 * connection, and if server is reachable
+	 * before restarting activity
+	 */
 	@Override
 	public void onRestart(){
 		super.onRestart();
-		title.setText("diag");
 	    if(user.get(1)== "")
 	    	CheckNetworkState(this);
 	}
-
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
@@ -87,10 +92,10 @@ public class MainActivity extends Activity {
 	/** Switches between login/logout text/buttons */
 	public void ToggleView()
 	{
-		blankview.setVisibility(View.INVISIBLE);
+		MainView.setVisibility(View.VISIBLE);
 		if(user.get(1) == "active"){
 			title.setText("Welcome back " + user.get(2) + "!");
-			login.setVisibility(View.GONE);
+			login.setVisibility(View.INVISIBLE);
 			logoff.setVisibility(View.VISIBLE);
 			newmember.setVisibility(View.VISIBLE);
 			viewstaff.setVisibility(View.VISIBLE);
@@ -98,45 +103,51 @@ public class MainActivity extends Activity {
 		}
 		else {
 			title.setText("This device is not logged in.");
-			logoff.setVisibility(View.GONE);
-			newmember.setVisibility(View.GONE);
-			viewstaff.setVisibility(View.GONE);
-			viewinst.setVisibility(View.GONE);
+			logoff.setVisibility(View.INVISIBLE);
+			newmember.setVisibility(View.INVISIBLE);
+			viewstaff.setVisibility(View.INVISIBLE);
+			viewinst.setVisibility(View.INVISIBLE);
 			login.setVisibility(View.VISIBLE);
 		}
+	}
+	
+	/** creates an alert and returns to 
+	 * home once user acknowledges 
+	 */
+	private void ShowFatalAlert(Context context, String title, String msg){
+		AlertDialog.Builder alert = new AlertDialog.Builder(context);
+		final AlertDialog ad = alert.create();
+		alert.setTitle(title);
+		alert.setMessage(msg);
+
+		alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int whichButton) {
+				MainActivity.this.moveTaskToBack(true);
+				//android.os.Process.killProcess(android.os.Process.myPid());
+			}
+		});
+
+		alert.show();
+		if(ad.isShowing())
+			ad.dismiss();
 	}
 	
 	/** check for network connection before loading app */
 	private void CheckNetworkState(Context context)
 	{
 		ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-		 
+		boolean error = true;
 		NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
-		//if(activeNetwork != null && activeNetwork.isConnected() && activeNetwork.isAvailable()) {
-		if(2==1) {
-			AlertDialog.Builder alert = new AlertDialog.Builder(context);
-
-			alert.setTitle("Internet Connection");
-			alert.setMessage("This application requires an active internet connection to work!");
-
-			alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-				public void onClick(DialogInterface dialog, int whichButton) {
-					MainActivity.this.moveTaskToBack(true);
-					//android.os.Process.killProcess(android.os.Process.myPid());
-				}
-			});
-
-			alert.show();
-		} else {
-			setContentView(R.layout.activity_main);
-			
-			
-			
-			ToggleView();
-			
-			
-			new CheckLogin().execute();
-		}
+		if(activeNetwork != null)
+			if(activeNetwork.isConnected()&&activeNetwork.isAvailable())
+				error = false;
+		
+		if(error)
+			ShowFatalAlert(context,"Internet Connection","This application requires an active internet connection to work!");
+				
+		ToggleView();
+		new CheckLogin().execute();
+		
 		
 	}
 	
@@ -222,23 +233,8 @@ public class MainActivity extends Activity {
 			super.onPostExecute(result);
 			if(pDialog.isShowing())
 				pDialog.dismiss();
-			if(success==10) {
-				AlertDialog.Builder alert = new AlertDialog.Builder(MainActivity.this);
-				final AlertDialog ad = alert.create();
-				alert.setTitle("Internet Connection");
-				alert.setMessage("The server is not reachable!");
-				alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int whichButton) {
-						
-						MainActivity.this.moveTaskToBack(true);
-						//android.os.Process.killProcess(android.os.Process.myPid());
-					}
-				});
-				
-				alert.show();
-				if(ad.isShowing())
-					ad.dismiss();
-			}
+			if(success==10)
+				ShowFatalAlert(MainActivity.this,"Internet Connection","The server is not reachable!");
 			ToggleView();
 		}
 		
