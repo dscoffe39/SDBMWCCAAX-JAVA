@@ -41,7 +41,6 @@ public class MainActivity extends Activity {
 	private Button viewstaff;
 	private Button viewinst;
 	private ProgressDialog pDialog;
-	private ImageView blankview;
 	private final ArrayList<String> user = new ArrayList<String>(Arrays.asList(getUID(), "", "", ""));
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
