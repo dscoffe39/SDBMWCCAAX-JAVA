@@ -45,6 +45,7 @@ public class MainActivity extends Activity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_main);
 		title = (TextView) findViewById(R.id.TVtitle);
 		logoff = (TextView) findViewById(R.id.TVlogoff);
 		login = (TextView) findViewById(R.id.TVlogin);
@@ -52,6 +53,7 @@ public class MainActivity extends Activity {
 		viewstaff = (Button) findViewById(R.id.Bviewstaff);
 		viewinst = (Button) findViewById(R.id.Bviewinst);
 		blankview = (ImageView) findViewById(R.id.blankView);
+		ToggleView();
 		title.setText("Hello!");
 		CheckNetworkState(this);
 	}
@@ -68,6 +70,10 @@ public class MainActivity extends Activity {
 		startActivity(login);
 	}
 
+	/** must check if we have a valid network 
+	 * connection, and if server is reachable
+	 * before restarting activity
+	 */
 	@Override
 	public void onRestart(){
 		super.onRestart();
@@ -75,7 +81,6 @@ public class MainActivity extends Activity {
 	    if(user.get(1)== "")
 	    	CheckNetworkState(this);
 	}
-
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
@@ -106,37 +111,43 @@ public class MainActivity extends Activity {
 		}
 	}
 	
+	/** creates an alert and returns to 
+	 * home once user acknowledges 
+	 */
+	private void ShowFatalAlert(Context context, String title, String msg){
+		AlertDialog.Builder alert = new AlertDialog.Builder(context);
+		final AlertDialog ad = alert.create();
+		alert.setTitle(title);
+		alert.setMessage(msg);
+
+		alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int whichButton) {
+				MainActivity.this.moveTaskToBack(true);
+				//android.os.Process.killProcess(android.os.Process.myPid());
+			}
+		});
+
+		alert.show();
+		if(ad.isShowing())
+			ad.dismiss();
+	}
+	
 	/** check for network connection before loading app */
 	private void CheckNetworkState(Context context)
 	{
 		ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-		 
+		boolean error = true;
 		NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
-		//if(activeNetwork != null && activeNetwork.isConnected() && activeNetwork.isAvailable()) {
-		if(2==1) {
-			AlertDialog.Builder alert = new AlertDialog.Builder(context);
-
-			alert.setTitle("Internet Connection");
-			alert.setMessage("This application requires an active internet connection to work!");
-
-			alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-				public void onClick(DialogInterface dialog, int whichButton) {
-					MainActivity.this.moveTaskToBack(true);
-					//android.os.Process.killProcess(android.os.Process.myPid());
-				}
-			});
-
-			alert.show();
-		} else {
-			setContentView(R.layout.activity_main);
-			
-			
-			
-			ToggleView();
-			
-			
-			new CheckLogin().execute();
-		}
+		if(activeNetwork != null)
+			if(activeNetwork.isConnected()&&activeNetwork.isAvailable())
+				error = false;
+		
+		if(error)
+			ShowFatalAlert(context,"Internet Connection","This application requires an active internet connection to work!");
+				
+		ToggleView();
+		new CheckLogin().execute();
+		
 		
 	}
 	
@@ -222,23 +233,8 @@ public class MainActivity extends Activity {
 			super.onPostExecute(result);
 			if(pDialog.isShowing())
 				pDialog.dismiss();
-			if(success==10) {
-				AlertDialog.Builder alert = new AlertDialog.Builder(MainActivity.this);
-				final AlertDialog ad = alert.create();
-				alert.setTitle("Internet Connection");
-				alert.setMessage("The server is not reachable!");
-				alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int whichButton) {
-						
-						MainActivity.this.moveTaskToBack(true);
-						//android.os.Process.killProcess(android.os.Process.myPid());
-					}
-				});
-				
-				alert.show();
-				if(ad.isShowing())
-					ad.dismiss();
-			}
+			if(success==10)
+				ShowFatalAlert(MainActivity.this,"Internet Connection","The server is not reachable!");
 			ToggleView();
 		}
 		
