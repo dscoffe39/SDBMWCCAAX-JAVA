@@ -1,31 +1,46 @@
 package com.auxlife.sdbmwccaax;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+import org.apache.http.NameValuePair;
+import org.apache.http.message.BasicNameValuePair;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import com.google.common.base.Charsets;
+import com.google.common.hash.Hashing;
+
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.view.KeyEvent;
+import android.util.Log;
 import android.view.Menu;
 import android.view.View;
-import android.view.inputmethod.EditorInfo;
+import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 
 /**
- * Activity which displays a login screen to the user, offering registration as
- * well.
+ * Activity which displays a login screen to the user
+ * and creates a json call to verify the credentials.
  */
+@SuppressLint("DefaultLocale")
 public class DisplayLoginActivity extends Activity {
-	/**
-	 * A dummy authentication store containing known user names and passwords.
-	 * TODO: remove after connecting to a real authentication system.
-	 */
-	private static final String[] DUMMY_CREDENTIALS = new String[] {
-			"foo@example.com:hello", "bar@example.com:world" };
+	private final static String URL_LOGIN = "http://sdbmwcca.com/ANDroid.endpOInt/login.actIOn";
+	private ProgressDialog pDialog;
+	private ArrayList<String> user;
 
 	/**
 	 * Keep track of the login task to ensure we can cancel it if requested.
@@ -39,37 +54,30 @@ public class DisplayLoginActivity extends Activity {
 	// UI references.
 	private EditText mUnView;
 	private EditText mPasswordView;
+	private Button mSignInButton;
 	private View mLoginFormView;
 	private View mLoginStatusView;
-	private TextView mLoginStatusMessageView;
 
+
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-
+		Locale.setDefault(new Locale("US"));
 		setContentView(R.layout.activity_display_login);
-
+		
 		// Set up the login form.
-		mUn = getIntent().getStringExtra("com.auxlife.sdbmwccaax.UID");
-		mUnView = (EditText) findViewById(R.id.uname);
-		//mUnView.setText(mUn);
-
-		mPasswordView = (EditText) findViewById(R.id.password);
-		mPasswordView
-				.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-					@Override
-					public boolean onEditorAction(TextView textView, int id,
-							KeyEvent keyEvent) {
-						attemptLogin();
-						return true;
-					}
-				});
-
+		//user.set(0,getIntent().getStringExtra("com.auxlife.sdbmwccaax.UID"));
+		//user.set(0, getIntent().getExtras().getString("UID"));
+		user = getIntent().getExtras().getStringArrayList("user");
+		Log.d("Received Data:", "> " + user.toString());
+		
 		mLoginFormView = findViewById(R.id.login_form);
 		mLoginStatusView = findViewById(R.id.login_status);
-		mLoginStatusMessageView = (TextView) findViewById(R.id.login_status_message);
-
-		findViewById(R.id.sign_in_button).setOnClickListener(
+		mSignInButton = (Button) findViewById(R.id.sign_in_button);
+		mUnView = (EditText) findViewById(R.id.uname);
+		mPasswordView = (EditText) findViewById(R.id.password);
+		mSignInButton.setOnClickListener(
 				new View.OnClickListener() {
 					@Override
 					public void onClick(View view) {
@@ -85,6 +93,106 @@ public class DisplayLoginActivity extends Activity {
 		return true;
 	}
 
+	/** creates an alert and returns to 
+	 * home once user acknowledges 
+	 */
+	private void ShowFatalAlert(Context context, String title, String msg){
+		AlertDialog.Builder alert = new AlertDialog.Builder(context);
+		final AlertDialog ad = alert.create();
+		alert.setTitle(title);
+		alert.setMessage(msg);
+
+		alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int whichButton) {
+				DisplayLoginActivity.this.moveTaskToBack(true);
+				//android.os.Process.killProcess(android.os.Process.myPid());
+			}
+		});
+
+		alert.show();
+		if(ad.isShowing())
+			ad.dismiss();
+	}
+	
+	/** sends a post call to the php page to login user and matches it to the device UID */
+	private class UserLoginTask extends AsyncTask<Void, Void, Void> {
+		private int success = 10;
+		
+		@Override
+		protected void onPreExecute() {
+			super.onPreExecute();
+			
+			pDialog = new ProgressDialog(DisplayLoginActivity.this);
+			pDialog.setMessage("Logging you in...");
+			pDialog.setCancelable(false);
+			pDialog.show();
+		}
+
+		@Override
+		protected Void doInBackground(Void... params) {
+			JsonHandler sh = new JsonHandler();
+		
+			List<NameValuePair> param = new ArrayList<NameValuePair>();
+			param.add(new BasicNameValuePair("login","login"));
+			param.add(new BasicNameValuePair("usrID", user.get(0)));
+			param.add(new BasicNameValuePair("myusername", mUn));
+			param.add(new BasicNameValuePair("mypassword", mPassword));
+			Log.d("Post Data: (login)", "> " + param.toString());
+			String jsonStr = sh.makeJsonCall(URL_LOGIN, JsonHandler.POST, param);
+			Log.d("Response: ", "> " + jsonStr);
+			if(jsonStr.toLowerCase().indexOf("error") != -1)
+				success = 99;
+			else if (jsonStr != null) {
+				try {
+					JSONObject jsonObj = new JSONObject(jsonStr);
+					success = jsonObj.getInt("ActiveUser");
+					if(success == 1) {
+						user.set(1, "active");
+						user.set(2, jsonObj.getString("Name"));
+						user.set(3, jsonObj.getString("Position"));
+					}
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+
+			return null;
+		}
+		@Override
+		protected void onPostExecute(Void result){
+			super.onPostExecute(result);
+			if(pDialog.isShowing())
+				pDialog.dismiss();
+			mAuthTask = null;
+			
+			//showProgress(false);
+			switch(success) {
+			case 1:
+				Intent resultIntent = new Intent();
+				resultIntent.putStringArrayListExtra("user", user);
+				setResult(Activity.RESULT_OK, resultIntent);
+				finish();
+				break;
+			case 10:
+				ShowFatalAlert(DisplayLoginActivity.this,"Internet Connection","The server is not reachable!");
+				break;
+			case 0:
+				mPasswordView.setError(getString(R.string.error_incorrect_password));
+				mPasswordView.requestFocus();
+				break;
+			case 2:
+				mUnView.setError(getString(R.string.error_incorrect_un));
+				mUnView.requestFocus();
+				break;
+			default:
+				ShowFatalAlert(DisplayLoginActivity.this,"Server Error","Something went wrong please contact the administrator!");
+				break;
+			}
+		}
+		
+	}
+	
 	/**
 	 * Attempts to sign in or register the account specified by the login form.
 	 * If there are form errors (invalid email, missing fields, etc.), the
@@ -102,6 +210,7 @@ public class DisplayLoginActivity extends Activity {
 		// Store values at the time of the login attempt.
 		mUn = mUnView.getText().toString();
 		mPassword = mPasswordView.getText().toString();
+		String Temp;
 
 		boolean cancel = false;
 		View focusView = null;
@@ -117,13 +226,13 @@ public class DisplayLoginActivity extends Activity {
 			cancel = true;
 		}
 
-		// Check for a valid usernmae.
+		// Check for a valid username.
 		if (TextUtils.isEmpty(mUn)) {
 			mUnView.setError(getString(R.string.error_field_required));
 			focusView = mUnView;
 			cancel = true;
 		} else if (mUn.length() < 4) {
-			mUnView.setError(getString(R.string.error_invalid_email));
+			mUnView.setError(getString(R.string.error_invalid_un));
 			focusView = mUnView;
 			cancel = true;
 		}
@@ -135,8 +244,12 @@ public class DisplayLoginActivity extends Activity {
 		} else {
 			// Show a progress spinner, and kick off a background task to
 			// perform the user login attempt.
-			mLoginStatusMessageView.setText(R.string.login_progress_signing_in);
-			showProgress(true);
+			//mLoginStatusMessageView.setText(R.string.login_progress_signing_in);
+			Temp = Hashing.sha1().hashString(mUn+">B;#7yD9", Charsets.UTF_8).toString();
+			mUn = Hashing.md5().hashString(Temp+mUn, Charsets.UTF_8).toString();
+			Temp = Hashing.sha1().hashString(mPassword+"-(j8@gAS", Charsets.UTF_8).toString();
+			mPassword = Hashing.md5().hashString(Temp+mPassword, Charsets.UTF_8).toString();
+			
 			mAuthTask = new UserLoginTask();
 			mAuthTask.execute((Void) null);
 		}
@@ -180,55 +293,6 @@ public class DisplayLoginActivity extends Activity {
 			// and hide the relevant UI components.
 			mLoginStatusView.setVisibility(show ? View.VISIBLE : View.GONE);
 			mLoginFormView.setVisibility(show ? View.GONE : View.VISIBLE);
-		}
-	}
-
-	/**
-	 * Represents an asynchronous login/registration task used to authenticate
-	 * the user.
-	 */
-	public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
-		@Override
-		protected Boolean doInBackground(Void... params) {
-			// TODO: attempt authentication against a network service.
-
-			try {
-				// Simulate network access.
-				Thread.sleep(2000);
-			} catch (InterruptedException e) {
-				return false;
-			}
-
-			for (String credential : DUMMY_CREDENTIALS) {
-				String[] pieces = credential.split(":");
-				if (pieces[0].equals(mUn)) {
-					// Account exists, return true if the password matches.
-					return pieces[1].equals(mPassword);
-				}
-			}
-
-			// TODO: register the new account here.
-			return true;
-		}
-
-		@Override
-		protected void onPostExecute(final Boolean success) {
-			mAuthTask = null;
-			showProgress(false);
-
-			if (success) {
-				finish();
-			} else {
-				mPasswordView
-						.setError(getString(R.string.error_incorrect_password));
-				mPasswordView.requestFocus();
-			}
-		}
-
-		@Override
-		protected void onCancelled() {
-			mAuthTask = null;
-			showProgress(false);
 		}
 	}
 }
