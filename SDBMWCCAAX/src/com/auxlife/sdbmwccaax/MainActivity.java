@@ -3,6 +3,7 @@ package com.auxlife.sdbmwccaax;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.apache.http.NameValuePair;
@@ -25,14 +26,13 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.View;
 import android.widget.Button;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
 	private final static String URL_LOGIN = "http://sdbmwcca.com/ANDroid.endpOInt/login.actIOn";
 	private final static String URL_LOGOUT = "http://sdbmwcca.com/ANDroid.endpOInt/logout.actIOn";
-	private final static String URL_GET_MEMB = "http://sdbmwcca.com/ANDroid.endpOInt/login.actIOn";
-	private final static String URL_PUT_MEMB = "http://sdbmwcca.com/ANDroid.endpOInt/login.actIOn";
+	//private final static String URL_GET_MEMB = "http://sdbmwcca.com/ANDroid.endpOInt/login.actIOn";
+	//private final static String URL_PUT_MEMB = "http://sdbmwcca.com/ANDroid.endpOInt/login.actIOn";
 	private View MainView;
 	private TextView title;
 	private TextView logoff;
@@ -41,10 +41,12 @@ public class MainActivity extends Activity {
 	private Button viewstaff;
 	private Button viewinst;
 	private ProgressDialog pDialog;
-	private final ArrayList<String> user = new ArrayList<String>(Arrays.asList(getUID(), "", "", ""));
+	private ArrayList<String> user = new ArrayList<String>(Arrays.asList(getUID(), "idle", "Name", "Position"));
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		Locale.setDefault(new Locale("US"));
 		setContentView(R.layout.activity_main);
 		MainView = (View) findViewById(R.id.RelativeLayout);
 		title = (TextView) findViewById(R.id.TVtitle);
@@ -66,10 +68,26 @@ public class MainActivity extends Activity {
 	/** Called when the user clicks the login text */
 	public void Click_login(View view) {
 		Intent login = new Intent(this, DisplayLoginActivity.class);
-		login.putExtra("com.auxlife.sdbmwccaax.UID", user.get(0));
-		startActivity(login);
+		login.putStringArrayListExtra("user", user);
+		startActivityForResult(login,1);
 	}
-
+	
+	/** Called when the login activity has finished */
+	@Override 
+	public void onActivityResult(int requestCode, int resultCode, Intent data) {     
+	  super.onActivityResult(requestCode, resultCode, data); 
+	  switch(requestCode) { 
+	    case (1) : { 
+	      if (resultCode == Activity.RESULT_OK) { 
+		      user = data.getExtras().getStringArrayList("user");
+		      Log.d("Received Data:", "> " + user.toString());
+		      ToggleView();
+	      } 
+	      break; 
+	    } 
+	  }
+	}
+	
 	/** must check if we have a valid network 
 	 * connection, and if server is reachable
 	 * before restarting activity
@@ -77,8 +95,7 @@ public class MainActivity extends Activity {
 	@Override
 	public void onRestart(){
 		super.onRestart();
-	    if(user.get(1)== "")
-	    	CheckNetworkState(this);
+	    CheckNetworkState(this);
 	}
 
 	@Override
@@ -92,7 +109,11 @@ public class MainActivity extends Activity {
 	public void ToggleView()
 	{
 		MainView.setVisibility(View.VISIBLE);
-		if(user.get(1) == "active"){
+	//	if(pDialog.isShowing())
+		//	pDialog.dismiss();
+		//Log.d("bl:",String.valueOf(user.get(1).toLowerCase(Locale.getDefault()).indexOf("active")));
+		if(user.get(1).toLowerCase(Locale.getDefault()).indexOf("active") != -1){
+		//if(user.get(1) == "active") {
 			title.setText("Welcome back " + user.get(2) + "!");
 			login.setVisibility(View.INVISIBLE);
 			logoff.setVisibility(View.VISIBLE);
@@ -137,17 +158,17 @@ public class MainActivity extends Activity {
 		ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
 		boolean error = true;
 		NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+		
 		if(activeNetwork != null)
 			if(activeNetwork.isConnected()&&activeNetwork.isAvailable())
 				error = false;
 		
 		if(error)
 			ShowFatalAlert(context,"Internet Connection","This application requires an active internet connection to work!");
-				
+		else
+			if(user.get(1)== "idle")
+				new CheckLogin().execute();
 		ToggleView();
-		new CheckLogin().execute();
-		
-		
 	}
 	
 	/** Return Pseudo Unique ID */
@@ -191,6 +212,7 @@ public class MainActivity extends Activity {
 	/** sends a post call to the php page to check if this UID has an active login */
 	private class CheckLogin extends AsyncTask<Void, Void, Void> {
 		private int success = 10;
+		
 		@Override
 		protected void onPreExecute() {
 			super.onPreExecute();
@@ -200,13 +222,14 @@ public class MainActivity extends Activity {
 			pDialog.setCancelable(false);
 			pDialog.show();
 		}
+		
 		@Override
 		protected Void doInBackground(Void... params) {
 			JsonHandler sh = new JsonHandler();
 		
 			List<NameValuePair> param = new ArrayList<NameValuePair>();
 			param.add(new BasicNameValuePair("usrID", user.get(0)));
-			
+			Log.d("Post Data: (login)", "> " + param.toString());
 			String jsonStr = sh.makeJsonCall(URL_LOGIN, JsonHandler.POST, param);
 			Log.d("Response: ", "> " + jsonStr);
 			
@@ -215,9 +238,10 @@ public class MainActivity extends Activity {
 					JSONObject jsonObj = new JSONObject(jsonStr);
 					success = jsonObj.getInt("ActiveUser");
 					if(success == 1) {
-						user.add(1, "active");
-						user.add(2, jsonObj.getString("Name"));
-						user.add(3, jsonObj.getString("Position"));
+						user.set(1, "active");
+						user.set(2, jsonObj.getString("Name"));
+						user.set(3, jsonObj.getString("Position"));
+						Log.d("Saved Data:", "> " + user.toString());
 					}
 				} catch (JSONException e) {
 					// TODO Auto-generated catch block
@@ -257,7 +281,7 @@ public class MainActivity extends Activity {
 			
 			List<NameValuePair> param = new ArrayList<NameValuePair>();
 			param.add(new BasicNameValuePair("usrID", user.get(0)));
-			
+			Log.d("Post Data (logout): ", "> " + param.toString());
 			String jsonStr = sh.makeJsonCall(URL_LOGOUT, JsonHandler.POST, param);
 			Log.d("Response: ", "> " + jsonStr);
 			
@@ -266,9 +290,9 @@ public class MainActivity extends Activity {
 					JSONObject jsonObj = new JSONObject(jsonStr);
 					success = jsonObj.getInt("ActiveUser");
 					if(success == 0) {
-						user.add(1, "");
-						user.add(2, "");
-						user.add(3, "");
+						user.set(1, "idle");
+						user.set(2, "Name");
+						user.set(3, "Position");
 					}
 				} catch (JSONException e) {
 					// TODO Auto-generated catch block
@@ -284,6 +308,5 @@ public class MainActivity extends Activity {
 				pDialog.dismiss();
 			ToggleView();
 		}
-		
 	}
 }
