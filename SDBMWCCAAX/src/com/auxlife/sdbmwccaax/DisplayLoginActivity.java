@@ -67,8 +67,6 @@ public class DisplayLoginActivity extends Activity {
 		setContentView(R.layout.activity_display_login);
 		
 		// Set up the login form.
-		//user.set(0,getIntent().getStringExtra("com.auxlife.sdbmwccaax.UID"));
-		//user.set(0, getIntent().getExtras().getString("UID"));
 		user = getIntent().getExtras().getStringArrayList("user");
 		Log.d("Received Data:", "> " + user.toString());
 		
@@ -105,7 +103,6 @@ public class DisplayLoginActivity extends Activity {
 		alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int whichButton) {
 				DisplayLoginActivity.this.moveTaskToBack(true);
-				//android.os.Process.killProcess(android.os.Process.myPid());
 			}
 		});
 
@@ -244,7 +241,8 @@ public class DisplayLoginActivity extends Activity {
 		} else {
 			// Show a progress spinner, and kick off a background task to
 			// perform the user login attempt.
-			//mLoginStatusMessageView.setText(R.string.login_progress_signing_in);
+			//encrypt the data before sending over http matches the functions used to create user accounts
+			//http://docs.guava-libraries.googlecode.com/git-history/v11.0/javadoc/com/google/common/hash/Hashing.html
 			Temp = Hashing.sha1().hashString(mUn+">B;#7yD9", Charsets.UTF_8).toString();
 			mUn = Hashing.md5().hashString(Temp+mUn, Charsets.UTF_8).toString();
 			Temp = Hashing.sha1().hashString(mPassword+"-(j8@gAS", Charsets.UTF_8).toString();
